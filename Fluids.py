@@ -8,13 +8,13 @@ STEP_PIN = 27  # GPIO pin for step signal
 
 
 class Stepper_Driver(object):
+    pinDir = 17
+    pinStep = 27
+    pulseDuration = 1 / 100
+    maxSpeed = 500
+    minSpeed = 0
+
     def __init__(self):
-        self.pinStep = STEP_PIN
-        self.pinDir = DIR_PIN
-        self.pulseSpeed = 100  # Steps per second
-        self.pulseDuration = 1 / 100
-        self.maxSpeed = 500
-        self.minSpeed = 0
         GPIO.setwarnings(False)
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(self.pinStep, GPIO.OUT)
@@ -25,8 +25,7 @@ class Stepper_Driver(object):
             desired_speed = self.maxSpeed
         elif desired_speed < self.maxSpeed:
             desired_speed = self.minSpeed
-        self.pulseSpeed = desired_speed
-        self.pulseDuration = 1 / self.pulseSpeed
+        self.pulseDuration = 1 / desired_speed
 
 
 temp = Stepper_Driver()
