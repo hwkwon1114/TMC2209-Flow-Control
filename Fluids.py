@@ -1,39 +1,50 @@
 import time
 import RPi.GPIO as GPIO
-import math
 
-DESIRED_DISPLACEMENT = 50  # ml
-DIR_PIN = 17  # GPIO pin for direction signal
-STEP_PIN = 27  # GPIO pin for step signal
+DESIRED_SPEED = 500  # Desired speed in steps per second
+DIR_PIN = 27  # GPIO pin for direction signal
+STEP_PIN = 22  # GPIO pin for step signal
+MIN_PULSE_DURATION = 1.9e-6  # Minimum pulse duration in seconds (1.9us)
 
 
 class Stepper_Driver(object):
-    pinDir = 17
-    pinStep = 27
-    pulseDuration = 1 / 100
-    maxSpeed = 500
-    minSpeed = 0
+    def __init__(self, pinDir, pinStep):
+        self.pinDir = pinDir
+        self.pinStep = pinStep
+        self.pulseDuration = MIN_PULSE_DURATION
 
-    def __init__(self):
         GPIO.setwarnings(False)
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(self.pinStep, GPIO.OUT)
         GPIO.setup(self.pinDir, GPIO.OUT)
 
     def setSpeed(self, desired_speed):
-        if desired_speed > self.maxSpeed:
-            desired_speed = self.maxSpeed
-        elif desired_speed < self.maxSpeed:
-            desired_speed = self.minSpeed
-        self.pulseDuration = 1 / desired_speed
+        # Calculate pulse duration based on desired speed
+        desired_pulse_duration = 1.0 / desired_speed
+
+        # Ensure pulse duration is not less than the minimum
+        if desired_pulse_duration < MIN_PULSE_DURATION:
+            print("Warning: Desired speed is too high, setting to maximum speed.")
+            self.pulseDuration = MIN_PULSE_DURATION
+        else:
+            self.pulseDuration = desired_pulse_duration
+
+    def step(self, direction):
+        # Set direction
+        GPIO.output(self.pinDir, direction)
+
+        # Pulse the step pin
+        GPIO.output(self.pinStep, GPIO.HIGH)
+        time.sleep(self.pulseDuration / 2)
+        GPIO.output(self.pinStep, GPIO.LOW)
+        time.sleep(self.pulseDuration / 2)
 
 
-temp = Stepper_Driver()
+temp = Stepper_Driver(DIR_PIN, STEP_PIN)
+temp.setSpeed(DESIRED_SPEED)
+
 try:
     while True:
-        GPIO.output(temp.pinStep, GPIO.HIGH)
-        time.sleep(temp.pulseDuration / 2)
-        GPIO.output(temp.pinStep, GPIO.LOW)
-        time.sleep(temp.pulseDuration / 2)
+        temp.step(GPIO.HIGH)  # Replace with GPIO.LOW for the other direction
 except KeyboardInterrupt:
     GPIO.cleanup()
