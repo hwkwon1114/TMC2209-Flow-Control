@@ -5,6 +5,8 @@ from sensirion_driver_adapters.i2c_adapter.i2c_channel import I2cChannel
 from sensirion_i2c_sf06_lf.device import Sf06LfDevice
 from sensirion_i2c_sf06_lf.commands import InvFlowScaleFactors
 import math
+import threading
+
 
 DESIRED_SPEED = 500  # Desired speed in steps per second
 DIR_PIN = 27  # GPIO pin for direction signal
@@ -12,6 +14,7 @@ STEP_PIN = 22  # GPIO pin for step signal
 MIN_PULSE_DURATION = 1.9e-6  # Minimum pulse duration in seconds (1.9us)
 # TUBE_AREA = math.pi * (0. * 2.56) ** 2  # Area of Pipe
 DESIRED_DISPLACEMENT = 0.5  # ml
+StopFlag = threading.Event()
 
 
 class Stepper_Driver(object):
@@ -31,7 +34,6 @@ class Stepper_Driver(object):
 
         # Ensure pulse duration is not less than the minimum
         if desired_pulse_duration < MIN_PULSE_DURATION:
-            print("Warning: Desired speed is too high, setting to maximum speed.")
             self.pulseDuration = MIN_PULSE_DURATION
         else:
             self.pulseDuration = desired_pulse_duration
@@ -44,16 +46,16 @@ class Stepper_Driver(object):
         GPIO.output(self.pinDir, self.direction)
         # Pulse the step pin
         GPIO.output(self.pinStep, GPIO.HIGH)
-        time.sleep(self.pulseDuration / 2)
+        time.sleep(self.pulseDuration / 2)  # Split delay to half
         GPIO.output(self.pinStep, GPIO.LOW)
         time.sleep(self.pulseDuration / 2)
 
     def run(self):
         try:
-            while True:
+            while not StopFlag.is_set():
                 self.step(GPIO.HIGH)  # Replace with GPIO.LOW for the other direction
         except KeyboardInterrupt:
-            GPIO.cleanup()
+            StopFlag.set()
 
 
 class FlowSensor:
@@ -80,10 +82,12 @@ class FlowSensor:
     def start_measurement(self):
         self.sensor.start_h2o_continuous_measurement()
         self.prevtime = time.time()
-        while self.volume < DESIRED_DISPLACEMENT:
+        while self.volume < DESIRED_DISPLACEMENT and not StopFlag.is_set():
             time.sleep(0.02)
             self.read_measurement()
             print(self.volume)
+        self.stop_measurement()
+        self.close()
 
     def stop_measurement(self):
         self.sensor.stop_continuous_measurement()
@@ -105,5 +109,8 @@ temp = Stepper_Driver(DIR_PIN, STEP_PIN)
 temp.setSpeed(DESIRED_SPEED)
 temp.setDirection(GPIO.HIGH)
 Sensor = FlowSensor()
-Sensor.start_measurement()
+thread = threading.Thread(target=Sensor.start_measurement)
+thread.start()
 temp.run()
+thread.join()
+GPIO.cleanup()
