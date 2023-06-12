@@ -37,11 +37,13 @@ class Stepper_Driver(object):
         GPIO.output(self.pinStep, GPIO.LOW)
         time.sleep(self.pulseDuration / 2)
 
+    def run(self):
+        try:
+            while True:
+                temp.step(GPIO.LOW)  # Replace with GPIO.LOW for the other direction
+        except KeyboardInterrupt:
+            GPIO.cleanup()
+
 
 temp = Stepper_Driver(DIR_PIN, STEP_PIN)
-
-try:
-    while True:
-        temp.step(GPIO.LOW)  # Replace with GPIO.LOW for the other direction
-except KeyboardInterrupt:
-    GPIO.cleanup()
+temp.run()
