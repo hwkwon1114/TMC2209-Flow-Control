@@ -90,15 +90,15 @@ class FlowSensor:
 
     def read_measurement(self):
         try:
-            rawFlow, _, _ = self.sensor.read_measurement_data(
+            (rawFlow, _, _) = self.sensor.read_measurement_data(
                 InvFlowScaleFactors.SLF3C_1300F
             )
+            curTime = time.time()
+            flow = rawFlow / 500  # ml/min
+            self.volume += flow * (curTime - self.prevtime) / 60  # in ml
+            self.prevtime = curTime
         except BaseException:
-            return
-        curTime = time.time()
-        flow = rawFlow / 500  # ml/min
-        self.volume += flow * (curTime - self.prevtime) / 60  # in ml
-        self.prevtime = curTime
+            None
 
 
 temp = Stepper_Driver(DIR_PIN, STEP_PIN)
