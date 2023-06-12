@@ -8,9 +8,9 @@ import math
 import threading
 
 
-DESIRED_SPEED = 500  # Desired speed in steps per second
-DIR_PIN = 27  # GPIO pin for direction signal
-STEP_PIN = 22  # GPIO pin for step signal
+DESIRED_SPEED = 50  # Desired speed in steps per second
+DIR_PIN = 22  # GPIO pin for direction signal
+STEP_PIN = 27  # GPIO pin for step signal
 MIN_PULSE_DURATION = 1.9e-6  # Minimum pulse duration in seconds (1.9us)
 # TUBE_AREA = math.pi * (0. * 2.56) ** 2  # Area of Pipe
 DESIRED_DISPLACEMENT = 0.5  # ml
