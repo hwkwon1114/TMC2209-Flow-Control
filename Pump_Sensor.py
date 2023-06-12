@@ -66,7 +66,7 @@ class FlowSensor:
             crc=CrcCalculator(8, 0x31, 0xFF, 0x0),
         )
         self.sensor = Sf06LfDevice(channel)
-        self.volume = 0
+        self.volume = 0.0
         try:
             self.sensor.stop_continuous_measurement()  # Check if Open
             time.sleep(0.1)
@@ -90,13 +90,14 @@ class FlowSensor:
 
     def read_measurement(self):
         try:
-            flow, temperature, signaling_flags = self.sensor.read_measurement_data(
+            rawFlow, _, _ = self.sensor.read_measurement_data(
                 InvFlowScaleFactors.SLF3C_1300F
             )
         except BaseException:
             return
         curTime = time.time()
-        self.volume += flow * (curTime - self.prevtime) * TUBE_AREA  # in ml
+        flow = rawFlow / 500  # ml/min
+        self.volume += flow * (curTime - self.prevtime) / 60 * TUBE_AREA  # in ml
         self.prevtime = curTime
 
 
