@@ -27,6 +27,8 @@ class Stepper_Driver(object):
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(self.pinStep, GPIO.OUT)
         GPIO.setup(self.pinDir, GPIO.OUT)
+        GPIO.output(self.pinStep, GPIO.LOW)
+        GPIO.output(self.pinDir, self.direction)
 
     def setSpeed(self, desired_speed):
         # Calculate pulse duration based on desired speed
@@ -53,7 +55,7 @@ class Stepper_Driver(object):
     def run(self):
         try:
             while not StopFlag.is_set():
-                self.step(GPIO.HIGH)  # Replace with GPIO.LOW for the other direction
+                self.step()  # Replace with GPIO.LOW for the other direction
         except KeyboardInterrupt:
             StopFlag.set()
 
@@ -87,7 +89,6 @@ class FlowSensor:
             self.read_measurement()
             print(self.volume)
         self.stop_measurement()
-        self.close()
 
     def stop_measurement(self):
         self.sensor.stop_continuous_measurement()
@@ -109,8 +110,11 @@ temp = Stepper_Driver(DIR_PIN, STEP_PIN)
 temp.setSpeed(DESIRED_SPEED)
 temp.setDirection(GPIO.HIGH)
 Sensor = FlowSensor()
-thread = threading.Thread(target=Sensor.start_measurement)
-thread.start()
-temp.run()
-thread.join()
+thread1 = threading.Thread(target=Sensor.start_measurement)
+thread2 = threading.Thread(target=temp.run)
+thread1.start()
+thread2.start()
+thread1.join()
+thread2.join()
+Sensor.close()
 GPIO.cleanup()
