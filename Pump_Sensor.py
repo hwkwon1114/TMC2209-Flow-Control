@@ -89,6 +89,7 @@ class FlowSensor:
         while self.volume < DESIRED_DISPLACEMENT and not StopFlag.is_set():
             time.sleep(0.02)
             self.read_measurement()
+            print(self.volume)
         self.stop_measurement()
 
     def stop_measurement(self):
@@ -102,17 +103,16 @@ class FlowSensor:
                 a_signaling_flags,
             ) = self.sensor.read_measurement_data(InvFlowScaleFactors.SLF3C_1300F)
             curTime = time.time()
-            flow = rawFlow / 500  # ml/min
-            print(flow)
-            self.volume += flow * (curTime - self.prevtime) / 60  # in ml
+            flow = abs(rawFlow.value)  # ml/min
+            self.volume += flow * (curTime - self.prevtime) / 60.0  # in ml
             self.prevtime = curTime
         except BaseException:
-            print("error")
+            print(a_signaling_flags)
 
 
 temp = Stepper_Driver(DIR_PIN, STEP_PIN)
 temp.setSpeed(DESIRED_STEP_SPEED)
-temp.setDirection(GPIO.HIGH)
+temp.setDirection(GPIO.LOW)
 Sensor = FlowSensor()
 thread1 = threading.Thread(target=Sensor.start_measurement)
 thread2 = threading.Thread(target=temp.run)
