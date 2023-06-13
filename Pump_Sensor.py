@@ -7,12 +7,10 @@ from sensirion_i2c_sf06_lf.commands import InvFlowScaleFactors
 import math
 import threading
 
-
-DESIRED_SPEED = 50  # Desired speed in steps per second
+DESIRED_STEP_SPEED = 10000  # Desired speed iFluids.pyn steps per second
 DIR_PIN = 22  # GPIO pin for direction signal
 STEP_PIN = 27  # GPIO pin for step signal
 MIN_PULSE_DURATION = 1.9e-6  # Minimum pulse duration in seconds (1.9us)
-# TUBE_AREA = math.pi * (0. * 2.56) ** 2  # Area of Pipe
 DESIRED_DISPLACEMENT = 0.5  # ml
 StopFlag = threading.Event()
 
@@ -27,8 +25,6 @@ class Stepper_Driver(object):
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(self.pinStep, GPIO.OUT)
         GPIO.setup(self.pinDir, GPIO.OUT)
-        GPIO.output(self.pinStep, GPIO.LOW)
-        GPIO.output(self.pinDir, self.direction)
 
     def setSpeed(self, desired_speed):
         # Calculate pulse duration based on desired speed
@@ -36,6 +32,7 @@ class Stepper_Driver(object):
 
         # Ensure pulse duration is not less than the minimum
         if desired_pulse_duration < MIN_PULSE_DURATION:
+            print("Warning: Desired speed is too high, setting to maximum speed.")
             self.pulseDuration = MIN_PULSE_DURATION
         else:
             self.pulseDuration = desired_pulse_duration
@@ -76,6 +73,11 @@ class FlowSensor:
             time.sleep(0.1)
         except BaseException:
             print("Ready to Start")
+        (product_identifier, serial_number) = self.sensor.read_product_identifier()
+        print(
+            f"product_identifier: {product_identifier}; "
+            f"serial_number: {serial_number}; "
+        )
         self.prevtime = time.time()
 
     def close(self):  # Needs to close before ending
@@ -87,7 +89,6 @@ class FlowSensor:
         while self.volume < DESIRED_DISPLACEMENT and not StopFlag.is_set():
             time.sleep(0.02)
             self.read_measurement()
-            print(self.volume)
         self.stop_measurement()
 
     def stop_measurement(self):
@@ -95,19 +96,22 @@ class FlowSensor:
 
     def read_measurement(self):
         try:
-            (rawFlow, _, _) = self.sensor.read_measurement_data(
-                InvFlowScaleFactors.SLF3C_1300F
-            )
+            (
+                rawFlow,
+                a_temperature,
+                a_signaling_flags,
+            ) = self.sensor.read_measurement_data(InvFlowScaleFactors.SLF3C_1300F)
             curTime = time.time()
             flow = rawFlow / 500  # ml/min
+            print(flow)
             self.volume += flow * (curTime - self.prevtime) / 60  # in ml
             self.prevtime = curTime
         except BaseException:
-            None
+            print("error")
 
 
 temp = Stepper_Driver(DIR_PIN, STEP_PIN)
-temp.setSpeed(DESIRED_SPEED)
+temp.setSpeed(DESIRED_STEP_SPEED)
 temp.setDirection(GPIO.HIGH)
 Sensor = FlowSensor()
 thread1 = threading.Thread(target=Sensor.start_measurement)
