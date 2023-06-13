@@ -110,9 +110,15 @@ temp = Stepper_Driver(DIR_PIN, STEP_PIN)
 temp.setSpeed(DESIRED_SPEED)
 temp.setDirection(GPIO.HIGH)
 Sensor = FlowSensor()
-thread1 = threading.Thread(target=temp.run)
-Sensor.start_measurement()
+thread1 = threading.Thread(target=Sensor.start_measurement)
+thread2 = threading.Thread(target=temp.run)
 thread1.start()
+# Give some time for the measurement to start before starting the motor control
+time.sleep(0.5)  # Adjust the delay as needed
+# Start the motor control thread
+thread2.start()
+# Wait for both threads to complete
 thread1.join()
+thread2.join()
 Sensor.close()
 GPIO.cleanup()
