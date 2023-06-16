@@ -5,14 +5,20 @@ from sensirion_driver_adapters.i2c_adapter.i2c_channel import I2cChannel
 from sensirion_i2c_sf06_lf.device import Sf06LfDevice
 from sensirion_i2c_sf06_lf.commands import InvFlowScaleFactors
 import math
-import threading
+from threading import Event, Thread
 
-DESIRED_STEP_SPEED = 10000  # Desired speed iFluids.pyn steps per second
+DESIRED_STEP_SPEED = 10000  # Desired steps per second
 DIR_PIN = 22  # GPIO pin for direction signal
 STEP_PIN = 27  # GPIO pin for step signal
 MIN_PULSE_DURATION = 1.9e-6  # Minimum pulse duration in seconds (1.9us)
-DESIRED_DISPLACEMENT = 0.5  # ml
-StopFlag = threading.Event()
+
+DESIRED_FLOW_RATE = 0.5  # Desired flow rate in ml/sec
+FLOW_RATE_TOLERANCE = 0.01  # Tolerance for flow rate control
+DESIRED_DISPLACEMENT = 5.0  # Desired total displacement in ml
+ACCELERATION_STEPS = 1000  # The number of steps over which to accelerate
+MICROSTEPS = 16  # Define the number of microsteps per full step
+
+StopFlag = Event()
 
 
 class Stepper_Driver(object):
@@ -28,7 +34,7 @@ class Stepper_Driver(object):
 
     def setSpeed(self, desired_speed):
         # Calculate pulse duration based on desired speed
-        desired_pulse_duration = 1.0 / desired_speed
+        desired_pulse_duration = 1.0 / (desired_speed * MICROSTEPS)
 
         # Ensure pulse duration is not less than the minimum
         if desired_pulse_duration < MIN_PULSE_DURATION:
@@ -51,8 +57,17 @@ class Stepper_Driver(object):
 
     def run(self):
         try:
+            step_count = 0
             while not StopFlag.is_set():
-                self.step()  # Replace with GPIO.LOW for the other direction
+                # Acceleration
+                if step_count < ACCELERATION_STEPS:
+                    self.setSpeed(
+                        (DESIRED_STEP_SPEED / ACCELERATION_STEPS) * step_count
+                    )
+                else:
+                    self.setSpeed(DESIRED_STEP_SPEED)
+                self.step()
+                step_count += 1
         except KeyboardInterrupt:
             StopFlag.set()
 
@@ -110,19 +125,44 @@ class FlowSensor:
             print(a_signaling_flags)
 
 
-temp = Stepper_Driver(DIR_PIN, STEP_PIN)
-temp.setSpeed(DESIRED_STEP_SPEED)
-temp.setDirection(GPIO.LOW)
-Sensor = FlowSensor()
-thread1 = threading.Thread(target=Sensor.start_measurement)
-thread2 = threading.Thread(target=temp.run)
-thread1.start()
 # Give some time for the measurement to start before starting the motor control
-time.sleep(0.5)  # Adjust the delay as needed
-# Start the motor control thread
-thread2.start()
-# Wait for both threads to complete
-thread1.join()
-thread2.join()
-Sensor.close()
-GPIO.cleanup()
+class FluidController:
+    def __init__(self):
+        self.driver = Stepper_Driver(DIR_PIN, STEP_PIN)
+        self.sensor = FlowSensor()
+
+    def control_loop(self):
+        while self.sensor.volume < DESIRED_DISPLACEMENT and not StopFlag.is_set():
+            flow_rate = self.sensor.read_measurement()
+            if flow_rate < DESIRED_FLOW_RATE - FLOW_RATE_TOLERANCE:
+                self.driver.setSpeed(
+                    self.driver.pulseDuration * 1.1
+                )  # Increase speed by 10%
+            elif flow_rate > DESIRED_FLOW_RATE + FLOW_RATE_TOLERANCE:
+                self.driver.setSpeed(
+                    self.driver.pulseDuration * 0.9
+                )  # Decrease speed by 10%
+            time.sleep(0.1)  # Adjust the delay as needed
+
+    def start(self):
+        thread1 = Thread(target=self.sensor.start_measurement)
+        thread2 = Thread(target=self.driver.run)
+        thread3 = Thread(target=self.control_loop)
+
+        thread1.start()
+        time.sleep(
+            0.5
+        )  # Give some time for the measurement to start before starting the motor control
+        thread2.start()
+        thread3.start()
+
+        thread1.join()
+        thread2.join()
+        thread3.join()
+
+        self.sensor.close()
+        GPIO.cleanup()
+
+
+controller = FluidController()
+controller.start()
