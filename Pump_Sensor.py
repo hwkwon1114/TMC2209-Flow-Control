@@ -59,7 +59,7 @@ class Stepper_Driver(object):
         try:
             step_count = 0
             while not StopFlag.is_set():
-            	step_count += 1
+                step_count += 1
                 # Acceleration
                 if step_count < ACCELERATION_STEPS:
                     self.setSpeed(
@@ -68,7 +68,6 @@ class Stepper_Driver(object):
                 else:
                     self.setSpeed(DESIRED_STEP_SPEED)
                 self.step()
-                
         except KeyboardInterrupt:
             StopFlag.set()
 
@@ -151,9 +150,7 @@ class FluidController:
         thread3 = Thread(target=self.control_loop)
 
         thread1.start()
-        time.sleep(
-            0.5
-        )  # Give some time for the measurement to start before starting the motor control
+        time.sleep(0.5)  # Give some time for the measurement
         thread2.start()
         thread3.start()
 
