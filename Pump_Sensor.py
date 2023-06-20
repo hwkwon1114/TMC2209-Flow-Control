@@ -103,9 +103,8 @@ class FlowSensor:
         self.sensor.start_h2o_continuous_measurement()
         self.prevtime = time.time()
         while self.volume < DESIRED_DISPLACEMENT and not StopFlag.is_set():
-            time.sleep(0.02)
+            time.sleep(0.0005)
             self.read_measurement()
-            print(self.volume)
         self.stop_measurement()
 
     def stop_measurement(self):
@@ -134,11 +133,11 @@ class FluidController:
 
     def control_loop(self):
         while self.sensor.volume < DESIRED_DISPLACEMENT and not StopFlag.is_set():
-            if self.flow < DESIRED_FLOW_RATE - FLOW_RATE_TOLERANCE:
+            if self.sensor.flow < DESIRED_FLOW_RATE - FLOW_RATE_TOLERANCE:
                 self.driver.setSpeed(
                     self.driver.pulseDuration * 1.1
                 )  # Increase speed by 10%
-            elif self.flow > DESIRED_FLOW_RATE + FLOW_RATE_TOLERANCE:
+            elif self.sensor.flow > DESIRED_FLOW_RATE + FLOW_RATE_TOLERANCE:
                 self.driver.setSpeed(
                     self.driver.pulseDuration * 0.9
                 )  # Decrease speed by 10%
