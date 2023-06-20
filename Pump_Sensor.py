@@ -108,6 +108,7 @@ class FlowSensor:
         self.stop_measurement()
 
     def stop_measurement(self):
+        StopFlag.set()
         self.sensor.stop_continuous_measurement()
 
     def read_measurement(self):
