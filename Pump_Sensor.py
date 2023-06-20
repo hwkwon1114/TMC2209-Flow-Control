@@ -120,7 +120,9 @@ class FlowSensor:
             ) = self.sensor.read_measurement_data(InvFlowScaleFactors.SLF3C_1300F)
             curTime = time.perf_counter_ns()
             self.flow = abs(rawFlow.value)  # ml/min
-            self.volume += self.flow * (curTime - self.prevtime) /1000000000.0/60.0  # in ml
+            self.volume += (
+                self.flow * (curTime - self.prevtime) / 1000000000.0 / 60.0
+            )  # in ml
             self.prevtime = curTime
         except BaseException:
             print(a_signaling_flags)
