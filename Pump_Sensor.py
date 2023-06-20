@@ -94,14 +94,14 @@ class FlowSensor:
             f"product_identifier: {product_identifier}; "
             f"serial_number: {serial_number}; "
         )
-        self.prevtime = time.time()
+        self.prevtime = time.perf_counter_ns()
 
     def close(self):  # Needs to close before ending
         self.i2c_transceiver.close()
 
     def start_measurement(self):
         self.sensor.start_h2o_continuous_measurement()
-        self.prevtime = time.time()
+        self.prevtime = time.perf_counter_ns()
         while self.volume < DESIRED_DISPLACEMENT and not StopFlag.is_set():
             time.sleep(0.0005)
             self.read_measurement()
@@ -118,9 +118,9 @@ class FlowSensor:
                 a_temperature,
                 a_signaling_flags,
             ) = self.sensor.read_measurement_data(InvFlowScaleFactors.SLF3C_1300F)
-            curTime = time.time()
+            curTime = time.perf_counter_ns()
             self.flow = abs(rawFlow.value)  # ml/min
-            self.volume += self.flow * (curTime - self.prevtime) / 60.0  # in ml
+            self.volume += self.flow * (curTime - self.prevtime) /1000000000.0/60.0  # in ml
             self.prevtime = curTime
         except BaseException:
             print(a_signaling_flags)
