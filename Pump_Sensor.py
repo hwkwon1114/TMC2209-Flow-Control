@@ -59,6 +59,7 @@ class Stepper_Driver(object):
         try:
             step_count = 0
             while not StopFlag.is_set():
+            	step_count += 1
                 # Acceleration
                 if step_count < ACCELERATION_STEPS:
                     self.setSpeed(
@@ -67,7 +68,7 @@ class Stepper_Driver(object):
                 else:
                     self.setSpeed(DESIRED_STEP_SPEED)
                 self.step()
-                step_count += 1
+                
         except KeyboardInterrupt:
             StopFlag.set()
 
@@ -83,6 +84,7 @@ class FlowSensor:
         )
         self.sensor = Sf06LfDevice(channel)
         self.volume = 0.0
+        self.flow = 0.0
         try:
             self.sensor.stop_continuous_measurement()  # Check if Open
             time.sleep(0.1)
@@ -118,8 +120,8 @@ class FlowSensor:
                 a_signaling_flags,
             ) = self.sensor.read_measurement_data(InvFlowScaleFactors.SLF3C_1300F)
             curTime = time.time()
-            flow = abs(rawFlow.value)  # ml/min
-            self.volume += flow * (curTime - self.prevtime) / 60.0  # in ml
+            self.flow = abs(rawFlow.value)  # ml/min
+            self.volume += self.flow * (curTime - self.prevtime) / 60.0  # in ml
             self.prevtime = curTime
         except BaseException:
             print(a_signaling_flags)
@@ -133,12 +135,11 @@ class FluidController:
 
     def control_loop(self):
         while self.sensor.volume < DESIRED_DISPLACEMENT and not StopFlag.is_set():
-            flow_rate = self.sensor.read_measurement()
-            if flow_rate < DESIRED_FLOW_RATE - FLOW_RATE_TOLERANCE:
+            if self.flow < DESIRED_FLOW_RATE - FLOW_RATE_TOLERANCE:
                 self.driver.setSpeed(
                     self.driver.pulseDuration * 1.1
                 )  # Increase speed by 10%
-            elif flow_rate > DESIRED_FLOW_RATE + FLOW_RATE_TOLERANCE:
+            elif self.flow > DESIRED_FLOW_RATE + FLOW_RATE_TOLERANCE:
                 self.driver.setSpeed(
                     self.driver.pulseDuration * 0.9
                 )  # Decrease speed by 10%
