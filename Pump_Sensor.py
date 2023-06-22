@@ -7,15 +7,15 @@ from sensirion_i2c_sf06_lf.commands import InvFlowScaleFactors
 import math
 from threading import Event, Thread
 
-DESIRED_STEP_SPEED = 10000  # Desired steps per second
+DESIRED_STEP_SPEED = 10000/ 60  # Desired steps per second
 DIR_PIN = 22  # GPIO pin for direction signal
 STEP_PIN = 27  # GPIO pin for step signal
 MIN_PULSE_DURATION = 1.9e-6  # Minimum pulse duration in seconds (1.9us)
 
 DESIRED_FLOW_RATE = 0.5  # Desired flow rate in ml/sec
 FLOW_RATE_TOLERANCE = 0.01  # Tolerance for flow rate control
-DESIRED_DISPLACEMENT = 5.0  # Desired total displacement in ml
-ACCELERATION_STEPS = 1000  # The number of steps over which to accelerate
+DESIRED_DISPLACEMENT = 8.0  # Desired total displacement in ml
+ACCELERATION_STEPS = 1100  # The number of steps over which to accelerate
 MICROSTEPS = 16  # Define the number of microsteps per full step
 
 StopFlag = Event()
@@ -26,7 +26,7 @@ class Stepper_Driver(object):
         self.pinDir = pinDir
         self.pinStep = pinStep
         self.pulseDuration = MIN_PULSE_DURATION
-        self.direction = GPIO.HIGH
+        self.direction = GPIO.LOW
         GPIO.setwarnings(False)
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(self.pinStep, GPIO.OUT)
@@ -105,6 +105,7 @@ class FlowSensor:
         while self.volume < DESIRED_DISPLACEMENT and not StopFlag.is_set():
             time.sleep(0.0005)
             self.read_measurement()
+            #print(self.volume)
         self.stop_measurement()
 
     def stop_measurement(self):
@@ -118,11 +119,10 @@ class FlowSensor:
                 a_temperature,
                 a_signaling_flags,
             ) = self.sensor.read_measurement_data(InvFlowScaleFactors.SLF3C_1300F)
+            #print(rawFlow,"-", a_signaling_flags)
             curTime = time.perf_counter_ns()
-            self.flow = abs(rawFlow.value)  # ml/min
-            self.volume += (
-                self.flow * (curTime - self.prevtime) / 1000000000.0 / 60.0
-            )  # in ml
+            self.flow = rawFlow.value  # ml/min
+            self.volume += self.flow * (curTime - self.prevtime) /1000000000.0/60.0  # in ml
             self.prevtime = curTime
         except BaseException:
             print(a_signaling_flags)
@@ -136,7 +136,7 @@ class FluidController:
 
     def control_loop(self):
         while self.sensor.volume < DESIRED_DISPLACEMENT and not StopFlag.is_set():
-            if self.sensor.flow < DESIRED_FLOW_RATE - FLOW_RATE_TOLERANCE:
+            if self.sensor.flow < 40:
                 self.driver.setSpeed(
                     self.driver.pulseDuration * 1.1
                 )  # Increase speed by 10%
@@ -149,16 +149,16 @@ class FluidController:
     def start(self):
         thread1 = Thread(target=self.sensor.start_measurement)
         thread2 = Thread(target=self.driver.run)
-        thread3 = Thread(target=self.control_loop)
+        #thread3 = Thread(target=self.control_loop)
 
         thread1.start()
         time.sleep(0.5)  # Give some time for the measurement
         thread2.start()
-        thread3.start()
+        #thread3.start()
 
         thread1.join()
         thread2.join()
-        thread3.join()
+        #thread3.join()
 
         self.sensor.close()
         GPIO.cleanup()
