@@ -7,7 +7,7 @@ from sensirion_i2c_sf06_lf.commands import InvFlowScaleFactors
 import math
 from threading import Event, Thread
 
-DESIRED_STEP_SPEED = 32000/ 60  # Desired steps per second 20000/60 - 30000/60
+DESIRED_STEP_SPEED = 32000/ 60  # Desired steps per second 20000/60 - 32000/60
 DIR_PIN = 22  # GPIO pin for direction signal
 STEP_PIN = 27  # GPIO pin for step signal
 MIN_PULSE_DURATION = 1.9e-6  # Minimum pulse duration in seconds (1.9us)
@@ -103,7 +103,7 @@ class FlowSensor:
         self.sensor.start_h2o_continuous_measurement()
         self.prevtime = time.perf_counter_ns()
         while self.volume < DESIRED_DISPLACEMENT and not StopFlag.is_set():
-            time.sleep(0.001)
+            time.sleep(0.0005)
             self.read_measurement()
             #print(self.volume)
         self.stop_measurement()
