@@ -165,6 +165,8 @@ class CircularBuffer:
     def findAverage(self, count):
         if count > self.size:
             count = self.size
+        elif count == 0:
+            return 0
         start_index = self.index - count if self.is_full else 0
         return sum(self.buffer[start_index : self.index]) / count
 
@@ -184,7 +186,9 @@ class FluidController:
 
     def control_loop(self):
         while self.sensor.volume < DESIRED_DISPLACEMENT and not StopFlag.is_set():
-            averageFlow = self.sensor.returnAverage()
+            averageFlow = self.sensor.returnAverage(
+                90 / (self.driver.StepSpeed * STEP_TO_RAD * MEASUREMENT_DELAY)
+            )
             timenow = time.perf_counter_ns() / 1000000000.0
             error = DESIRED_FLOW_RATE - averageFlow
             if self.time != 0:
@@ -205,6 +209,7 @@ class FluidController:
         thread1.start()
         time.sleep(0.5)  # Give some time for the measurement
         thread2.start()
+        time.sleep(0.1)
         thread3.start()
 
         thread1.join()
