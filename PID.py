@@ -163,12 +163,13 @@ class CircularBuffer:
             self.is_full = True
 
     def findAverage(self, count):
-        if count > self.size:
-            count = self.size
-        elif count == 0:
+        count1 = round(count)
+        if count1 > self.size:
+            count1 = self.size
+        elif count1 == 0:
             return 0
-        start_index = self.index - count if self.is_full else 0
-        return sum(self.buffer[start_index : self.index]) / count
+        start_index = self.index - count1 if self.is_full else 0
+        return sum(self.buffer[start_index : self.index]) / count1
 
 
 # Give some time for the measurement to start before starting the motor control
