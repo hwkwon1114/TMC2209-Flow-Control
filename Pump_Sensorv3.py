@@ -36,18 +36,28 @@ class Stepper_Driver(object):
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(self.pinStep, GPIO.OUT)
         GPIO.setup(self.pinDir, GPIO.OUT)
+        self.changing = False
 
     def setSpeed(self, desired_speed):
         # Calculate pulse duration based on desired speed
-        self.StepSpeed = desired_speed
         desired_pulse_duration = 1.0 / (desired_speed * MICROSTEPS)
-
         # Ensure pulse duration is not less than the minimum
         if desired_pulse_duration < MIN_PULSE_DURATION:
             print("Desired speed is too high, setting to maximum speed.")
             self.pulseDuration = MIN_PULSE_DURATION
         else:
             self.pulseDuration = desired_pulse_duration
+
+    def accelerateSpeed(self, Newspeed):
+        stepcount = 0
+        self.changing = True
+        diff = Newspeed - self.StepSpeed
+        while stepcount < ACCELERATION_STEPS:
+            stepcount += 1
+            self.setSpeed(self.StepSpeed + diff * (stepcount / ACCELERATION_STEPS))
+            self.step()
+        self.StepSpeed = Newspeed
+        self.changing = False
 
     def setDirection(self, Direction):
         self.direction = Direction
@@ -68,18 +78,9 @@ class Stepper_Driver(object):
 
     def run(self):
         try:
-            step_count = 0
             while not StopFlag.is_set():
-                step_count += 1
-                # Acceleration
-                if step_count < ACCELERATION_STEPS:
-                    self.setSpeed(
-                        self.StepSpeed
-                        + (DESIRED_STEP_SPEED - self.StepSpeed) * step_count
-                    )
-                else:
-                    self.setSpeed(DESIRED_STEP_SPEED)
-                self.step()
+                if self.changing == False:
+                    self.step()
         except KeyboardInterrupt:
             StopFlag.set()
 
@@ -191,7 +192,7 @@ class FluidController:
             derivTerm = error - self.lasterror
             self.lasterror = error
             self.time = timenow
-            self.driver.setSpeed(
+            self.driver.accelerateSpeed(
                 self.kP * error + self.kI * self.integrated_error + self.kD * derivTerm
             )  # Decrease the speed
             time.sleep(0.5)  # Adjust the delay as needed
