@@ -7,16 +7,16 @@ from sensirion_i2c_sf06_lf.commands import InvFlowScaleFactors
 import math
 from threading import Event, Thread
 
-DESIRED_STEP_SPEED = 32000 / 60  # Desired steps per second
+DESIRED_STEP_SPEED = 20000 / 60  # Desired steps per second
 DIR_PIN = 22  # GPIO pin for direction signal
 STEP_PIN = 27  # GPIO pin for step signal
 MIN_PULSE_DURATION = 1.9e-6  # Minimum pulse duration in seconds (1.9us)
 MEASUREMENT_DELAY = 0.0005  # Has to be less than 100 ms (0.1s)
-DESIRED_FLOW_RATE = 0.5  # Desired flow rate in ml/sec
+DESIRED_FLOW_RATE = 10  # Desired flow rate in ml/min
 FLOW_RATE_TOLERANCE = 0.01  # Tolerance for flow rate control
-DESIRED_DISPLACEMENT = 8.0  # Desired total displacement in ml
+DESIRED_DISPLACEMENT = 5.0  # Desired total displacement in ml
 ACCELERATION_STEPS = 1100  # The number of steps over which to accelerate
-STEP_TO_RAD = 1.8 / 200
+STEP_TO_RAD = 360 / 200
 MICROSTEPS = 16  # Define the number of microsteps per full step
 
 StopFlag = Event()
@@ -26,11 +26,11 @@ class Stepper_Driver(object):
     def __init__(self, pinDir, pinStep):
         self.pinDir = pinDir
         self.pinStep = pinStep
-        self.size = 90 / (
-            DESIRED_STEP_SPEED * STEP_TO_RAD * MEASUREMENT_DELAY
+        self.size = (
+            90 / (DESIRED_STEP_SPEED * STEP_TO_RAD * MEASUREMENT_DELAY) * 1.1
         )  # Seconds divided by delay
         self.pulseDuration = MIN_PULSE_DURATION
-        self.StepSpeed = 0
+        self.StepSpeed = DESIRED_STEP_SPEED
         self.direction = GPIO.LOW
         GPIO.setwarnings(False)
         GPIO.setmode(GPIO.BCM)
