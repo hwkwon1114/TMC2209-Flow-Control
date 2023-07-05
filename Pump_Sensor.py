@@ -7,16 +7,16 @@ from sensirion_i2c_sf06_lf.commands import InvFlowScaleFactors
 import math
 from threading import Event, Thread
 
-DESIRED_STEP_SPEED = 10000 / 60  # Desired steps per second
+DESIRED_STEP_SPEED = 32000/ 60  # Desired steps per second 20000/60 - 30000/60
 DIR_PIN = 22  # GPIO pin for direction signal
 STEP_PIN = 27  # GPIO pin for step signal
 MIN_PULSE_DURATION = 1.9e-6  # Minimum pulse duration in seconds (1.9us)
 
 DESIRED_FLOW_RATE = 0.5  # Desired flow rate in ml/sec
 FLOW_RATE_TOLERANCE = 0.01  # Tolerance for flow rate control
-DESIRED_DISPLACEMENT = 8.0  # Desired total displacement in ml
+DESIRED_DISPLACEMENT = 5.0  # Desired total displacement in ml
 ACCELERATION_STEPS = 1100  # The number of steps over which to accelerate
-MICROSTEPS = 16  # Define the number of microsteps per full step
+MICROSTEPS = 32  # Define the number of microsteps per full step
 
 StopFlag = Event()
 
@@ -26,7 +26,6 @@ class Stepper_Driver(object):
         self.pinDir = pinDir
         self.pinStep = pinStep
         self.pulseDuration = MIN_PULSE_DURATION
-        self.StepSpeed = 0
         self.direction = GPIO.LOW
         GPIO.setwarnings(False)
         GPIO.setmode(GPIO.BCM)
@@ -35,12 +34,11 @@ class Stepper_Driver(object):
 
     def setSpeed(self, desired_speed):
         # Calculate pulse duration based on desired speed
-        self.StepSpeed = desired_speed
         desired_pulse_duration = 1.0 / (desired_speed * MICROSTEPS)
 
         # Ensure pulse duration is not less than the minimum
         if desired_pulse_duration < MIN_PULSE_DURATION:
-            print("Desired speed is too high, setting to maximum speed.")
+            print("Warning: Desired speed is too high, setting to maximum speed.")
             self.pulseDuration = MIN_PULSE_DURATION
         else:
             self.pulseDuration = desired_pulse_duration
@@ -65,8 +63,7 @@ class Stepper_Driver(object):
                 # Acceleration
                 if step_count < ACCELERATION_STEPS:
                     self.setSpeed(
-                        self.StepSpeed
-                        + (DESIRED_STEP_SPEED - self.StepSpeed) * step_count
+                        (DESIRED_STEP_SPEED / ACCELERATION_STEPS) * step_count
                     )
                 else:
                     self.setSpeed(DESIRED_STEP_SPEED)
@@ -108,7 +105,7 @@ class FlowSensor:
         while self.volume < DESIRED_DISPLACEMENT and not StopFlag.is_set():
             time.sleep(0.001)
             self.read_measurement()
-            # print(self.volume)
+            #print(self.volume)
         self.stop_measurement()
 
     def stop_measurement(self):
@@ -119,15 +116,13 @@ class FlowSensor:
         try:
             (
                 rawFlow,
-                _,
+                a_temperature,
                 a_signaling_flags,
             ) = self.sensor.read_measurement_data(InvFlowScaleFactors.SLF3C_1300F)
-            # print(rawFlow,"-", a_signaling_flags)
+            #print(rawFlow,"-", a_signaling_flags)
             curTime = time.perf_counter_ns()
             self.flow = rawFlow.value  # ml/min
-            self.volume += (
-                self.flow * (curTime - self.prevtime) / 1000000000.0 / 60.0
-            )  # in ml
+            self.volume += self.flow * (curTime - self.prevtime) /1000000000.0/60.0  # in ml
             self.prevtime = curTime
         except BaseException:
             print(a_signaling_flags)
@@ -141,23 +136,29 @@ class FluidController:
 
     def control_loop(self):
         while self.sensor.volume < DESIRED_DISPLACEMENT and not StopFlag.is_set():
-            if self.sensor.flow > 40:
-                self.driver.setSpeed(self.driver.StepSpeed * 0.99)  # Decrease the speed
-                time.sleep(0.1)  # Adjust the delay as needed
+            if self.sensor.flow < 40:
+                self.driver.setSpeed(
+                    self.driver.pulseDuration * 1.1
+                )  # Increase speed by 10%
+            elif self.sensor.flow > DESIRED_FLOW_RATE + FLOW_RATE_TOLERANCE:
+                self.driver.setSpeed(
+                    self.driver.pulseDuration * 0.9
+                )  # Decrease speed by 10%
+            time.sleep(0.1)  # Adjust the delay as needed
 
     def start(self):
         thread1 = Thread(target=self.sensor.start_measurement)
         thread2 = Thread(target=self.driver.run)
-        thread3 = Thread(target=self.control_loop)
+        #thread3 = Thread(target=self.control_loop)
 
         thread1.start()
         time.sleep(0.5)  # Give some time for the measurement
         thread2.start()
-        thread3.start()
+
 
         thread1.join()
         thread2.join()
-        thread3.join()
+
 
         self.sensor.close()
         GPIO.cleanup()
