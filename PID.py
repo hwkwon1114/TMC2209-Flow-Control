@@ -151,8 +151,8 @@ class FlowSensor:
 
 class CircularBuffer:
     def __init__(self, size):
-        self.size = size
-        self.buffer = [None] * size
+        self.size = round(size)
+        self.buffer = [None] * self.size
         self.index = 0
         self.is_full = False
 
