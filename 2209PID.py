@@ -99,7 +99,7 @@ try:
         speed = P * error + I * flow_sensor.integrated_error + D * derivative
         stepper_driver.setSpeed(speed)
         flow_sensor.prev_voldiff = error
-        # Wait for 1 second
+          # Wait for 1 second
         time.sleep(1)
 except KeyboardInterrupt:
     # Stop continuous measurement

@@ -7,15 +7,16 @@ from sensirion_i2c_sf06_lf.commands import InvFlowScaleFactors
 import math
 from threading import Event, Thread
 
-DESIRED_STEP_SPEED = 10000 / 60  # Desired steps per second
+DESIRED_STEP_SPEED = 200000 / 60  # Desired steps per second
 DIR_PIN = 22  # GPIO pin for direction signal
 STEP_PIN = 27  # GPIO pin for step signal
 MIN_PULSE_DURATION = 1.9e-6  # Minimum pulse duration in seconds (1.9us)
-
+MEASUREMENT_DELAY = 0.0005  # Has to be less than 100 ms (0.1s)
 DESIRED_FLOW_RATE = 0.5  # Desired flow rate in ml/sec
 FLOW_RATE_TOLERANCE = 0.01  # Tolerance for flow rate control
 DESIRED_DISPLACEMENT = 8.0  # Desired total displacement in ml
 ACCELERATION_STEPS = 1100  # The number of steps over which to accelerate
+STEP_TO_RAD = 1.8 / 200
 MICROSTEPS = 16  # Define the number of microsteps per full step
 
 StopFlag = Event()
@@ -25,6 +26,9 @@ class Stepper_Driver(object):
     def __init__(self, pinDir, pinStep):
         self.pinDir = pinDir
         self.pinStep = pinStep
+        self.size = 90 / (
+            DESIRED_STEP_SPEED * STEP_TO_RAD * MEASUREMENT_DELAY
+        )  # Seconds divided by delay
         self.pulseDuration = MIN_PULSE_DURATION
         self.StepSpeed = 0
         self.direction = GPIO.LOW
@@ -47,6 +51,11 @@ class Stepper_Driver(object):
 
     def setDirection(self, Direction):
         self.direction = Direction
+
+    def updateSize(self):
+        self.size = 90 / (
+            self.StepSpeed * STEP_TO_RAD * MEASUREMENT_DELAY
+        )  # Update to the new size
 
     def step(self):
         # Set direction
@@ -86,7 +95,10 @@ class FlowSensor:
         )
         self.sensor = Sf06LfDevice(channel)
         self.volume = 0.0
-        self.flow = 0.0
+        self.circularBuffer = CircularBuffer(
+            90 / (DESIRED_STEP_SPEED * STEP_TO_RAD * MEASUREMENT_DELAY)
+        )
+
         try:
             self.sensor.stop_continuous_measurement()  # Check if Open
             time.sleep(0.1)
@@ -106,7 +118,7 @@ class FlowSensor:
         self.sensor.start_h2o_continuous_measurement()
         self.prevtime = time.perf_counter_ns()
         while self.volume < DESIRED_DISPLACEMENT and not StopFlag.is_set():
-            time.sleep(0.001)
+            time.sleep(MEASUREMENT_DELAY)
             self.read_measurement()
             # print(self.volume)
         self.stop_measurement()
@@ -124,13 +136,36 @@ class FlowSensor:
             ) = self.sensor.read_measurement_data(InvFlowScaleFactors.SLF3C_1300F)
             # print(rawFlow,"-", a_signaling_flags)
             curTime = time.perf_counter_ns()
-            self.flow = rawFlow.value  # ml/min
             self.volume += (
-                self.flow * (curTime - self.prevtime) / 1000000000.0 / 60.0
+                rawFlow.value * (curTime - self.prevtime) / 1000000000.0 / 60.0
             )  # in ml
+            self.circularBuffer.addMeasurement(rawFlow.value)
             self.prevtime = curTime
         except BaseException:
             print(a_signaling_flags)
+
+    def returnAverage(self):
+        return self.circularBuffer.findAverage()
+
+
+class CircularBuffer:
+    def __init__(self, size):
+        self.size = size
+        self.buffer = [None] * size
+        self.index = 0
+        self.is_full = False
+
+    def addMeasurement(self, measurement):
+        self.buffer[self.index] = measurement
+        self.index = (self.index + 1) % self.size
+        if not self.is_full and self.index == 0:
+            self.is_full = True
+
+    def findAverage(self, count):
+        if count > self.size:
+            count = self.size
+        start_index = self.index - count if self.is_full else 0
+        return sum(self.buffer[start_index : self.index]) / count
 
 
 # Give some time for the measurement to start before starting the motor control
@@ -138,12 +173,28 @@ class FluidController:
     def __init__(self):
         self.driver = Stepper_Driver(DIR_PIN, STEP_PIN)
         self.sensor = FlowSensor()
+        self.desiredFlowrate = 20  # ml/min
+        self.kP = 0.5
+        self.kI = 0.5
+        self.kD = 0.1
+        self.lasterror = 0
+        self.integrated_error = 0
+        self.time = 0
 
     def control_loop(self):
         while self.sensor.volume < DESIRED_DISPLACEMENT and not StopFlag.is_set():
-            if self.sensor.flow > 40:
-                self.driver.setSpeed(self.driver.StepSpeed * 0.99)  # Decrease the speed
-                time.sleep(0.1)  # Adjust the delay as needed
+            averageFlow = self.sensor.returnAverage()
+            timenow = time.perf_counter_ns() / 1000000000.0
+            error = DESIRED_FLOW_RATE - averageFlow
+            if self.time != 0:
+                self.integrated_error += (timenow - self.time) * error
+            derivTerm = error - self.lasterror
+            self.lasterror = error
+            self.time = timenow
+            self.driver.setSpeed(
+                self.kP * error + self.kI * self.integrated_error + self.kD * derivTerm
+            )  # Decrease the speed
+            time.sleep(0.5)  # Adjust the delay as needed
 
     def start(self):
         thread1 = Thread(target=self.sensor.start_measurement)
