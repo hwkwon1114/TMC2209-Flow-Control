@@ -99,7 +99,7 @@ class FlowSensor:
         self.circularBuffer = CircularBuffer(
             90 / (DESIRED_STEP_SPEED * STEP_TO_RAD * MEASUREMENT_DELAY)
         )
-        self.counter = 0
+
         try:
             self.sensor.stop_continuous_measurement()  # Check if Open
             time.sleep(0.1)
@@ -135,10 +135,6 @@ class FlowSensor:
                 _,
                 a_signaling_flags,
             ) = self.sensor.read_measurement_data(InvFlowScaleFactors.SLF3C_1300F)
-            self.counter += 1
-            if rawFlow == -65.0:
-                print(self.counter)
-                self.counter = 0
             # print(rawFlow,"-", a_signaling_flags)
             curTime = time.perf_counter_ns()
             self.volume += (

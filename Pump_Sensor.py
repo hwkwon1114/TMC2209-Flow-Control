@@ -7,7 +7,7 @@ from sensirion_i2c_sf06_lf.commands import InvFlowScaleFactors
 import math
 from threading import Event, Thread
 
-DESIRED_STEP_SPEED = 32000/ 60  # Desired steps per second 20000/60 - 32000/60
+DESIRED_STEP_SPEED = 32000 / 60  # Desired steps per second 20000/60 - 32000/60
 DIR_PIN = 22  # GPIO pin for direction signal
 STEP_PIN = 27  # GPIO pin for step signal
 MIN_PULSE_DURATION = 1.9e-6  # Minimum pulse duration in seconds (1.9us)
@@ -84,6 +84,7 @@ class FlowSensor:
         self.sensor = Sf06LfDevice(channel)
         self.volume = 0.0
         self.flow = 0.0
+        self.counter = 0
         try:
             self.sensor.stop_continuous_measurement()  # Check if Open
             time.sleep(0.1)
@@ -105,7 +106,7 @@ class FlowSensor:
         while self.volume < DESIRED_DISPLACEMENT and not StopFlag.is_set():
             time.sleep(0.0005)
             self.read_measurement()
-            #print(self.volume)
+            # print(self.volume)
         self.stop_measurement()
 
     def stop_measurement(self):
@@ -119,10 +120,16 @@ class FlowSensor:
                 a_temperature,
                 a_signaling_flags,
             ) = self.sensor.read_measurement_data(InvFlowScaleFactors.SLF3C_1300F)
-            #print(rawFlow,"-", a_signaling_flags)
+            self.counter += 1
+            if rawFlow == -65.0:
+                print(self.counter)
+                self.counter = 0
+            # print(rawFlow,"-", a_signaling_flags)
             curTime = time.perf_counter_ns()
             self.flow = rawFlow.value  # ml/min
-            self.volume += self.flow * (curTime - self.prevtime) /1000000000.0/60.0  # in ml
+            self.volume += (
+                self.flow * (curTime - self.prevtime) / 1000000000.0 / 60.0
+            )  # in ml
             self.prevtime = curTime
         except BaseException:
             print(a_signaling_flags)
@@ -149,16 +156,14 @@ class FluidController:
     def start(self):
         thread1 = Thread(target=self.sensor.start_measurement)
         thread2 = Thread(target=self.driver.run)
-        #thread3 = Thread(target=self.control_loop)
+        # thread3 = Thread(target=self.control_loop)
 
         thread1.start()
         time.sleep(0.5)  # Give some time for the measurement
         thread2.start()
 
-
         thread1.join()
         thread2.join()
-
 
         self.sensor.close()
         GPIO.cleanup()
