@@ -145,8 +145,8 @@ class FlowSensor:
         except BaseException:
             print(a_signaling_flags)
 
-    def returnAverage(self):
-        return self.circularBuffer.findAverage()
+    def returnAverage(self, count):
+        return self.circularBuffer.findAverage(count)
 
 
 class CircularBuffer:
