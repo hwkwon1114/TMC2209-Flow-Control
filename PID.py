@@ -38,34 +38,19 @@ class Stepper_Driver(object):
         GPIO.setup(self.pinDir, GPIO.OUT)
         self.changing = False
 
-    def setSpeed(self, desired_speed):
-        # Calculate pulse duration based on desired speed
-        desired_pulse_duration = 1.0 / (desired_speed * MICROSTEPS)
-        # Ensure pulse duration is not less than the minimum
+    def setSpeed(self, desired_speed):  # Made to set the desired speed
+        self.StepSpeed = desired_speed
+
+    def updateSpeed(self):  # Made so that the updates are made after the step
+        desired_pulse_duration = 1.0 / (self.StepSpeed * MICROSTEPS)
         if desired_pulse_duration < MIN_PULSE_DURATION:
             print("Desired speed is too high, setting to maximum speed.")
             self.pulseDuration = MIN_PULSE_DURATION
         else:
             self.pulseDuration = desired_pulse_duration
 
-    def accelerateSpeed(self, Newspeed):
-        stepcount = 0
-        self.changing = True
-        diff = Newspeed - self.StepSpeed
-        while stepcount < ACCELERATION_STEPS:
-            stepcount += 1
-            self.setSpeed(self.StepSpeed + diff * (stepcount / ACCELERATION_STEPS))
-            self.step()
-        self.StepSpeed = Newspeed
-        self.changing = False
-
     def setDirection(self, Direction):
         self.direction = Direction
-
-    def updateSize(self):
-        self.size = 90 / (
-            self.StepSpeed * STEP_TO_RAD * MEASUREMENT_DELAY
-        )  # Update to the new size
 
     def step(self):
         # Set direction
@@ -79,8 +64,8 @@ class Stepper_Driver(object):
     def run(self):
         try:
             while not StopFlag.is_set():
-                if self.changing == False:
-                    self.step()
+                self.updateSpeed()
+                self.step()
         except KeyboardInterrupt:
             StopFlag.set()
 
@@ -139,7 +124,7 @@ class FlowSensor:
             curTime = time.perf_counter_ns()
             self.volume += (
                 rawFlow.value * (curTime - self.prevtime) / 1000000000.0 / 60.0
-            )  # in ml
+            )  # ml
             self.circularBuffer.addMeasurement(rawFlow.value)
             self.prevtime = curTime
         except BaseException:
@@ -168,7 +153,15 @@ class CircularBuffer:
             count1 = self.size
         elif count1 == 0:
             return 0
-        start_index = self.index - count1 if self.is_full else 0
+        start_index = self.index - (count1) if self.is_full else 0
+        if start_index < 0:
+            return (
+                sum(
+                    self.buffer[start_index : self.size]
+                    + self.buffer[: start_index - (self.size - count1)]
+                )
+                / count1
+            )
         return sum(self.buffer[start_index : self.index]) / count1
 
 
