@@ -16,7 +16,7 @@ DESIRED_FLOW_RATE = 10  # Desired flow rate in ml/min
 DESIRED_DISPLACEMENT = 5.0  # Desired total displacement in ml
 ACCELERATION_STEPS = 1100  # The number of steps over which to accelerate
 STEP_TO_RAD = 360 / 200  # 1.8 deg per step
-MICROSTEPS = 16  # Define the number of microsteps per full step
+MICROSTEPS = 32  # Define the number of microsteps per full step
 
 StopFlag = Event()
 
