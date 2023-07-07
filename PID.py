@@ -13,10 +13,9 @@ STEP_PIN = 27  # GPIO pin for step signal
 MIN_PULSE_DURATION = 1.9e-6  # Minimum pulse duration in seconds (1.9us)
 MEASUREMENT_DELAY = 0.0005  # Has to be less than 100 ms (0.1s)
 DESIRED_FLOW_RATE = 10  # Desired flow rate in ml/min
-FLOW_RATE_TOLERANCE = 0.01  # Tolerance for flow rate control
 DESIRED_DISPLACEMENT = 5.0  # Desired total displacement in ml
 ACCELERATION_STEPS = 1100  # The number of steps over which to accelerate
-STEP_TO_RAD = 360 / 200
+STEP_TO_RAD = 360 / 200  # 1.8 deg per step
 MICROSTEPS = 16  # Define the number of microsteps per full step
 
 StopFlag = Event()
