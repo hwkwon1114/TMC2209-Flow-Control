@@ -153,7 +153,9 @@ class CircularBuffer:
             count1 = self.size
         elif count1 == 0:
             return 0
-        start_index = self.index - (count1) if self.is_full else 0
+        elif (self.is_full != True) and count1 >= self.index:
+            count1 = self.index
+        start_index = self.index - (count1)
         if start_index < 0:
             return (
                 sum(
@@ -170,10 +172,10 @@ class FluidController:
     def __init__(self):
         self.driver = Stepper_Driver(DIR_PIN, STEP_PIN)
         self.sensor = FlowSensor()
-        self.desiredFlowrate = 20  # ml/min
-        self.kP = 0.5
-        self.kI = 0.5
-        self.kD = 0.1
+        self.desiredFlowrate = 10  # ml/min
+        self.kP = 5
+        self.kI = 2
+        self.kD = 1 / 8
         self.lasterror = 0
         self.integrated_error = 0
         self.time = 0
@@ -190,7 +192,7 @@ class FluidController:
             derivTerm = error - self.lasterror
             self.lasterror = error
             self.time = timenow
-            self.driver.accelerateSpeed(
+            self.driver.setSpeed(
                 self.kP * error + self.kI * self.integrated_error + self.kD * derivTerm
             )  # Decrease the speed
             time.sleep(0.5)  # Adjust the delay as needed
