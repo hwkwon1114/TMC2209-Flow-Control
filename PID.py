@@ -7,7 +7,7 @@ from sensirion_i2c_sf06_lf.commands import InvFlowScaleFactors
 import math
 from threading import Event, Thread
 
-DESIRED_STEP_SPEED = 20000 / 60  # Desired steps per second
+DESIRED_STEP_SPEED = 30000 / 60  # Desired steps per second 20000/60 - 32000/60
 DIR_PIN = 22  # GPIO pin for direction signal
 STEP_PIN = 27  # GPIO pin for step signal
 MIN_PULSE_DURATION = 1.9e-6  # Minimum pulse duration in seconds (1.9us)
@@ -17,6 +17,7 @@ DESIRED_DISPLACEMENT = 5.0  # Desired total displacement in ml
 ACCELERATION_STEPS = 1100  # The number of steps over which to accelerate
 STEP_TO_RAD = 360 / 200  # 1.8 deg per step
 MICROSTEPS = 32  # Define the number of microsteps per full step
+
 
 StopFlag = Event()
 
